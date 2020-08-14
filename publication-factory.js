@@ -3,25 +3,31 @@ import { check, Match } from 'meteor/check'
 
 const isConnection = Match.Where(c => typeof c === 'object' && typeof c.publish === 'function')
 const isMaybeMongoCursor = Match.Where(c => !c || c.constructor.name === 'Cursor')
+const defaultErrorHandler = e => e
 
-export const createPublicationFactory = ({ schemaFactory, mixins, connection = Meteor } = {}) => {
+export const createPublicationFactory = ({ schemaFactory, mixins, onError, connection = Meteor } = {}) => {
   check(connection, isConnection)
+  check(onError, Match.Maybe(Function))
+
   const abstractFactoryLevelConnection = connection
   const abstractFactoryLevelMixins = mixins || []
+  const abstractFactoryLevelOnError = onError
   const isRequiredSchema = schemaFactory ? Object : Match.Maybe(Object)
 
-  return ({ name, schema, validate, run, mixins = [], connection = Meteor, ...factoryArgs }) => {
+  return ({ name, schema, validate, run, mixins = [], onError, connection = Meteor, ...factoryArgs }) => {
     check(name, String)
     check(schema, isRequiredSchema)
     check(validate, Match.Maybe(Function))
     check(run, Function)
     check(mixins, [Function])
     check(connection, isConnection)
+    check(onError, Match.Maybe(Function))
 
     // first we apply all mixins and create our internal "options"
     const localMixins = [].concat(mixins, abstractFactoryLevelMixins)
     const allArgs = Object.assign({}, { name, validate, run, mixins: localMixins, connection }, factoryArgs)
     const options = applyMixins(allArgs, localMixins)
+    const errorHandler = onError || abstractFactoryLevelOnError || defaultErrorHandler
 
     // connection can be overridden on factory level
     const factoryLevelConnection = options.connection !== Meteor
@@ -50,20 +56,21 @@ export const createPublicationFactory = ({ schemaFactory, mixins, connection = M
      */
     const publication = function (...args) {
       check(args, Match.Any) // make audit-all-arguments happy
-      validateFn(...args)
-
       const self = this
-      let cursor
 
       try {
-        cursor = options.run.apply(self, args)
-        check(cursor, isMaybeMongoCursor)
-      } catch (e) {
-        self.error(e)
-        return self.ready()
-      }
+        validateFn(...args)
+        const cursor = options.run.apply(self, args)
 
-      return cursor || self.ready()
+        check(cursor, isMaybeMongoCursor)
+        return cursor || self.ready()
+      } catch (publicationRuntimeError) {
+        // if we catched an error, we need to allow to log the error or transform the error
+        // for example to a sanitized / client-safe version to be passed to the client
+        // therefore we pass the error to the errorHandler and return the result (if any) to the client
+        const maybeTransformedError = errorHandler.call(null, publicationRuntimeError) || publicationRuntimeError
+        return self.error(maybeTransformedError)
+      }
     }
 
     publication.name = options.name

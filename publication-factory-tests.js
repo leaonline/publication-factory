@@ -62,10 +62,11 @@ describe('default, no args', function () {
 
     const env = {
       ready () {
-        done()
+        done(new Error('expected error to be set in this.error handler'))
       },
       error (e) {
         expect(e.message).to.include('Failed Match.Where validation')
+        done()
       }
     }
     publication.call(env)
@@ -79,10 +80,11 @@ describe('default, no args', function () {
 
     const env = {
       ready () {
-        done()
+        done(new Error('expected error to be set in this.error handler'))
       },
       error (e) {
         expect(e.message).to.equal(message)
+        done()
       }
     }
     publication.call(env)
@@ -118,7 +120,14 @@ describe('with schema', function () {
     })
 
     // expect fail
-    expect(() => publication()).to.throw('Limit is required')
+    publication.call( {
+      ready () {
+        done(new Error('expected error to be set in this.error handler'))
+      },
+      error (e) {
+        expect(e.message).to.equal('Limit is required')
+      }
+    })
 
     // expect pass
     const limit = getRandom()
@@ -146,7 +155,15 @@ describe('with schema', function () {
     })
 
     // expect fail
-    expect(() => publication()).to.throw('Match error: Missing key \'limit\'')
+    publication.call( {
+      ready () {
+        done(new Error('expected error to be set in this.error handler'))
+      },
+      error (e) {
+        expect(e.message).to.equal('Match error: Missing key \'limit\'')
+      }
+    })
+
 
     // expect pass
     const limit = getRandom()
@@ -178,6 +195,97 @@ describe('with schema', function () {
       expect(collections[collectionName]).to.have.lengthOf(expectedCount)
       done()
     })
+  })
+})
+
+describe('error handling', function () {
+  it ('allows to sanitize/transform an error on publication level', function (done) {
+    const name = Random.id()
+    const originalMessage = Random.id()
+    const expectedMessage = Random.id()
+    const createPublication = createPublicationFactory()
+    const publication = createPublication({
+      name,
+      run: () => {
+        throw new Error(originalMessage)
+      },
+      onError(e) {
+        e.message = expectedMessage
+      }
+    })
+
+    const env = {
+      ready () {
+        done(new Error('expected error to be set in this.error handler'))
+      },
+      error (e) {
+        expect(e.message).to.equal(expectedMessage)
+        expect(e.message).to.not.equal(originalMessage)
+        done()
+      }
+    }
+    publication.call(env)
+  })
+  it ('allows to sanitize/transform an error on abstract factory level', function (done) {
+    const name = Random.id()
+    const originalMessage = Random.id()
+    const expectedMessage = Random.id()
+    const createPublication = createPublicationFactory({
+      onError(e) {
+        e.message = expectedMessage // default for all pubs
+      }
+    })
+    const publication = createPublication({
+      name,
+      run: () => {
+        throw new Error(originalMessage)
+      }
+    })
+
+    const env = {
+      ready () {
+        done(new Error('expected error to be set in this.error handler'))
+      },
+      error (e) {
+        expect(e.message).to.equal(expectedMessage)
+        expect(e.message).to.not.equal(originalMessage)
+        done()
+      }
+    }
+    publication.call(env)
+  })
+  it ('prioritizes publication level over abstract factory level to sanitize/transform an error', function (done) {
+    const name = Random.id()
+    const originalMessage = Random.id()
+    const abstractFactoryMessage = Random.id()
+    const expectedMessage = Random.id()
+    const createPublication = createPublicationFactory({
+      onError(e) {
+        e.message = abstractFactoryMessage // default for all pubs
+      }
+    })
+    const publication = createPublication({
+      name,
+      run: () => {
+        throw new Error(originalMessage)
+      },
+      onError(e) {
+        e.message = expectedMessage // local override
+      }
+    })
+
+    const env = {
+      ready () {
+        done(new Error('expected error to be set in this.error handler'))
+      },
+      error (e) {
+        expect(e.message).to.not.equal(abstractFactoryMessage)
+        expect(e.message).to.not.equal(originalMessage)
+        expect(e.message).to.equal(expectedMessage)
+        done()
+      }
+    }
+    publication.call(env)
   })
 })
 

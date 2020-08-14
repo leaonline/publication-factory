@@ -223,6 +223,72 @@ const publicationWithMixins = createPublication({
 })
 ```
 
+### Error handling
+
+With version 1.1.0 we introduced an `onError` handler, that allows to log and transform errors.
+Sometimes errors are not thrown as `Meteor.Errors` and may be sent as ambiguous or confusing 500 messages
+to the client.
+
+Therefore it is possible to transform errors on both, abstract factory and publication, levels.
+
+#### Abstract factory level error handling
+
+Add an `onError` handler to your `createPublicationFactory` invocation in order to handle any occurring error, including
+validation errors and runtime errors:
+
+```javascript
+const createPublication = createPublicationFactory({
+  onError: function(e) {
+    // if you want to log the error just pass it to your logger
+    myLogger.log(e)
+    
+    // if you want to pass this error to the client
+    // and it's a Meteor.Error, just return it
+    if (e.errorType === 'Meteor.Error') {
+      return e
+    }
+    
+    // if it is not a Meteor.Error but you still want to pass it
+    // (in this case we have a validation-error from SimpleSchema)
+    // just add the isClientSafe attribute to it
+    if (e.errorType === 'ClientError' && e.error === 'validation-error') {
+      e.isClientSafe = true
+    }
+    
+    // if you like to transform if, feel free to do so
+    e.message = 'There was an error but we won\'t tell you about it'
+    
+    // return the error on order to tell the publication to set it
+    // as error to be returned to client, however, you can also omit
+    // this and return nothing in order to let Meteor decide
+    return e
+  }
+})
+```
+
+#### Publication level error handling
+
+You can also handle errors differently for each publication you create. Also note, that like with mixins, the local
+definitions override the abstract factory level definitions. 
+
+```javascript
+const createPublication = createPublicationFactory({
+  onError: function(e) {
+    myLogger.logError(e)
+  }
+})
+
+const publicationWithErrorHandler = createPublication({ 
+  name: 'publicationWithMixin', 
+  validate: () => {}, 
+  run: () => MyCollection.find(), 
+  onError: function(e) {
+    // for this pub we log this error with a different priority 
+    myLogger.logFatalError(e)
+  } 
+})
+```
+
 ## Codestyle
 
 We use `standard` as code style and for linting.
@@ -256,4 +322,4 @@ $ TEST_WATCH=1 TEST_CLIENT=0 meteor test-packages ./ --driver-package meteortest
 
 ## License
 
-MIT, see [LICENSE](./LICENSE)
+MIT, see [LICENSE](LICENSE)
