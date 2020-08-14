@@ -68,7 +68,7 @@ export const createPublicationFactory = ({ schemaFactory, mixins, onError, conne
         // if we catched an error, we need to allow to log the error or transform the error
         // for example to a sanitized / client-safe version to be passed to the client
         // therefore we pass the error to the errorHandler and return the result (if any) to the client
-        const maybeTransformedError = errorHandler.call(null, publicationRuntimeError) || publicationRuntimeError
+        const maybeTransformedError = errorHandler.call(self , publicationRuntimeError) || publicationRuntimeError
         return self.error(maybeTransformedError)
       }
     }
