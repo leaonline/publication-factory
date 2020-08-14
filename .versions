@@ -22,8 +22,8 @@ geojson-utils@1.0.10
 id-map@1.1.0
 inter-process-messaging@0.1.1
 johanbrook:publication-collector@1.0.10
-leaonline:publication-factory@1.0.0
-local-test:leaonline:publication-factory@1.0.0
+leaonline:publication-factory@1.1.0
+local-test:leaonline:publication-factory@1.1.0
 logging@1.1.20
 meteor@1.9.3
 meteortesting:browser-tests@0.1.2
