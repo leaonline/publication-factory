@@ -1,7 +1,7 @@
 /* eslint-env meteor */
 Package.describe({
   name: 'leaonline:publication-factory',
-  version: '1.1.1',
+  version: '2.0.0',
   // Brief, one-line summary of the package.
   summary: 'Create Meteor publications. Lightweight. Simple.',
   // URL to the Git repository containing the source code for this package.
@@ -12,7 +12,7 @@ Package.describe({
 })
 
 Package.onUse(function (api) {
-  api.versionsFrom('1.6')
+  api.versionsFrom(['2.3', '2.8.1', '3.0.1'])
   api.use('ecmascript', 'server')
   api.use('mongo', 'server')
   api.use('check', 'server')
@@ -20,6 +20,7 @@ Package.onUse(function (api) {
 })
 
 Package.onTest(function (api) {
+  api.versionsFrom(['2.3', '2.8.1', '3.0.1'])
   Npm.depends({
     chai: '4.2.0',
     'simpl-schema': '1.6.2'

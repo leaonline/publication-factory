@@ -54,26 +54,25 @@ export const createPublicationFactory = ({ schemaFactory, mixins, onError, conne
      * @param args arbitrary number and form of arguments
      * @return {Mongo.Cursor} a Mongo Cursor instance
      */
-    const publication = function (...args) {
+    const publication = async function (...args) {
       check(args, Match.Any) // make audit-all-arguments happy
       const self = this
 
       try {
         validateFn(...args)
-        const cursor = options.run.apply(self, args)
+        const cursor = await options.run.apply(self, args)
 
         check(cursor, isMaybeMongoCursor)
-        return cursor || self.ready()
+        return cursor ?? self.ready()
       } catch (publicationRuntimeError) {
         // if we catched an error, we need to allow to log the error or transform the error
         // for example to a sanitized / client-safe version to be passed to the client
         // therefore we pass the error to the errorHandler and return the result (if any) to the client
-        const maybeTransformedError = errorHandler.call(self , publicationRuntimeError) || publicationRuntimeError
+        const maybeTransformedError = await errorHandler.call(self , publicationRuntimeError) || publicationRuntimeError
         return self.error(maybeTransformedError)
       }
     }
 
-    publication.name = options.name
     factoryLevelConnection.publish(options.name, publication)
     check(factoryLevelConnection.server.publish_handlers[options.name], Function)
     return publication
